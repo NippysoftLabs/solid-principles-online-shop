@@ -30,7 +30,8 @@ void Show(string input, Func<object?> run)
     {
         result = $"{ex.GetType().Name}: {ex.Message}";
     }
-    Console.WriteLine($"{++n,2}. {input}\n    -> {result}");
+    // A NUL in a key would print as nothing visible; show it as \0.
+    Console.WriteLine($"{++n,2}. {input}\n    -> {result.Replace("\0", "\\0")}");
 }
 
 static string Format(object? value) => value switch
