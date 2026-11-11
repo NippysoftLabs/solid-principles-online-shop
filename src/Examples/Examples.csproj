@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Holds the "before" designs and the "after" designs that do not need a project boundary.
+       It references the vendor SDK only because the DIP "before" example calls it directly. -->
+  <ItemGroup>
+    <ProjectReference Include="..\FakeCloud.Storage\FakeCloud.Storage.csproj" />
+  </ItemGroup>
+</Project>

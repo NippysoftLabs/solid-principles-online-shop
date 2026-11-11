@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Orders.Domain\Orders.Domain.csproj" />
+    <ProjectReference Include="..\FakeCloud.Storage\FakeCloud.Storage.csproj" />
+  </ItemGroup>
+</Project>

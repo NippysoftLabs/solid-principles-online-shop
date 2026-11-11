@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FakeCloud.Storage/FakeCloud.Storage.csproj" />
+    <Project Path="src/Orders.Domain/Orders.Domain.csproj" />
+    <Project Path="src/Orders.Publishing/Orders.Publishing.csproj" />
+    <Project Path="src/Orders.Infrastructure/Orders.Infrastructure.csproj" />
+    <Project Path="src/Examples/Examples.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SystemSolid.Tests/SystemSolid.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/HostileInputs/HostileInputs.csproj" />
+  </Folder>
+</Solution>

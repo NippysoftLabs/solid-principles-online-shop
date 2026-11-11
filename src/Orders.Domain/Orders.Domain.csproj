@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- No ProjectReference on purpose: the domain must not see publishing, infrastructure or a vendor SDK.
+       tests/SystemSolid.Tests/ArchitectureTests.cs fails if one of them shows up in the compiled references. -->
+</Project>
