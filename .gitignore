@@ -5,4 +5,3 @@ TestResults/
 *.user
 .vscode/
 .idea/
-*.received.json

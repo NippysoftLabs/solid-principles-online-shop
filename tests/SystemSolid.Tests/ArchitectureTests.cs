@@ -16,14 +16,12 @@ public class ArchitectureTests
     private static string[] ReferencesOf(Type type) =>
         type.Assembly.GetReferencedAssemblies().Select(a => a.Name!).Order().ToArray();
 
+    // An allowlist: any assembly outside the framework fails, whatever its name.
     [Fact]
-    public void Domain_references_no_other_project_of_the_solution()
+    public void Domain_references_only_framework_assemblies()
     {
-        var references = ReferencesOf(typeof(CreditPolicy));
-
-        Assert.DoesNotContain("Orders.Publishing", references);
-        Assert.DoesNotContain("Orders.Infrastructure", references);
-        Assert.DoesNotContain("FakeCloud.Storage", references);
+        Assert.All(ReferencesOf(typeof(CreditPolicy)), name =>
+            Assert.True(name.StartsWith("System.", StringComparison.Ordinal), $"Orders.Domain references {name}"));
     }
 
     [Fact]

@@ -26,6 +26,5 @@ public class SrpTests
         Assert.False(CreditPolicy.Accepts(order, creditLimit: 100m));
         Assert.Equal("INVOICE c1 100.40", new InvoicePublisher(decimals: 2).Format(order));
         Assert.Equal("INVOICE c1 100", new InvoicePublisher(decimals: 0).Format(order));
-        Assert.False(CreditPolicy.Accepts(order, creditLimit: 100m));
     }
 }

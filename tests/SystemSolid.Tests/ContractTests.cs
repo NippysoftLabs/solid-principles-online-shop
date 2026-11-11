@@ -66,6 +66,26 @@ public class ContractTests
         }
     }
 
+    public enum StatusV1 { New, Paid }
+
+    public enum StatusV2 { New, Paid, Refunded }
+
+    public sealed record OrderStatusV1(string OrderId, StatusV1 Status);
+
+    public sealed record OrderStatusV2(string OrderId, StatusV2 Status);
+
+    [Fact]
+    public void A_new_enum_member_is_reported_and_an_old_reader_rejects_it()
+    {
+        var breaking = SchemaCompatibility.BreakingChanges(
+            SchemaCompatibility.SchemaOf(typeof(OrderStatusV1)), SchemaCompatibility.SchemaOf(typeof(OrderStatusV2)));
+
+        Assert.Equal(["$.status: new enum value \"Refunded\""], breaking);
+        Assert.Throws<JsonException>(() => ContractJson.Read<OrderStatusV1>("""{"orderId":"o-1","status":"Refunded"}"""));
+        // Integers are not accepted either: 2 would otherwise be read as an undefined StatusV1.
+        Assert.Throws<JsonException>(() => ContractJson.Read<OrderStatusV1>("""{"orderId":"o-1","status":2}"""));
+    }
+
     [Fact]
     public void Renaming_amount_cannot_ship_as_a_minor_version()
     {

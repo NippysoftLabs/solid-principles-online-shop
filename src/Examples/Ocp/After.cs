@@ -74,10 +74,16 @@ public sealed class SourceCatalog
         return errors;
     }
 
-    public IReadOnlyList<StockRecord> Import(SourceDefinition source, string content) =>
-        _readers.TryGetValue(source.Format, out var reader)
-            ? reader.Read(source, content)
-            : throw new InvalidOperationException($"source '{source.Name}': no reader for format '{source.Format}'");
+    public IReadOnlyList<StockRecord> Import(SourceDefinition source, string content)
+    {
+        // Validate already ran at startup; this repeats it for a source built in code that skipped it.
+        var errors = Validate([source]);
+        if (errors.Count > 0)
+        {
+            throw new InvalidOperationException(string.Join("; ", errors));
+        }
+        return _readers[source.Format].Read(source, content);
+    }
 }
 
 /// <summary>CSV, TSV or any one-character delimiter: a new partner with tabs is a config entry.</summary>

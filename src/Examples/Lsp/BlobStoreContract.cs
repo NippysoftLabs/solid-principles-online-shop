@@ -19,6 +19,12 @@ public static class BlobStoreContract
             data[0] = 9;
             return Same(s.Get("c"), 1);
         }),
+        ("returned bytes are a copy", s =>
+        {
+            s.Put("r", [1]);
+            s.Get("r")![0] = 9;
+            return Same(s.Get("r"), 1);
+        }),
         ("keys differing only in case stay apart", s =>
             Put(s, "Report.csv", 1) && Put(s, "report.csv", 2) && Same(s.Get("Report.csv"), 1)),
         ("trailing period is part of the key", s =>
@@ -35,6 +41,7 @@ public static class BlobStoreContract
         ("lone surrogates stay apart", s =>
             Put(s, "\uD800", 1) && Put(s, "\uDBFF", 2) && Same(s.Get("\uD800"), 1)),
         ("empty key throws ArgumentException", s => Throws<ArgumentException>(() => s.Put("", [1]))),
+        ("empty key on Get throws ArgumentException", s => Throws<ArgumentException>(() => s.Get(""))),
         ("key of 257 throws ArgumentException", s =>
             Throws<ArgumentException>(() => s.Put(new string('x', BlobKey.MaxLength + 1), [1]))),
     ];

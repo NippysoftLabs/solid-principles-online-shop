@@ -38,6 +38,20 @@ public class DipTests
         Assert.NotNull(bucket.DownloadObject("invoices/..%2Fo-1.txt"));
     }
 
+    [Fact]
+    public void After_the_cloud_adapter_rejects_ids_with_a_lone_surrogate()
+    {
+        var bucket = new CloudBucketClient("invoices-prod");
+        var archive = new CloudInvoiceArchive(bucket);
+
+        // Escaped, both ids would become "o%EF%BF%BD" and share one object.
+        Assert.Equal("o%EF%BF%BD", Uri.EscapeDataString("o\uD800"));
+        Assert.Equal("o%EF%BF%BD", Uri.EscapeDataString("o\uDBFF"));
+        Assert.Throws<ArgumentException>(() => archive.Save("o\uD800", [1]));
+        Assert.Throws<ArgumentException>(() => archive.Save("o\uDBFF", [2]));
+        Assert.Equal("invoices-prod/invoices/o%F0%9F%93%A6.txt", archive.Save("o\uD83D\uDCE6", [3]));
+    }
+
     private sealed class MemoryArchive : IInvoiceArchive
     {
         public Dictionary<string, byte[]> Saved { get; } = [];

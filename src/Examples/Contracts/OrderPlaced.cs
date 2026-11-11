@@ -24,7 +24,9 @@ namespace Examples.Contracts.After
     /// Options for every contract: constructor parameters without a default are required, a null in a
     /// non-nullable member throws, a number written as a string ("100.40") is rejected (the Web defaults
     /// accept it) and so is a property that appears twice. Unknown members are ignored, so a reader
-    /// tolerates added fields. Names still match ignoring case, as in the Web defaults.
+    /// tolerates added fields. Names still match ignoring case, as in the Web defaults. Enums are written
+    /// and read as their names, not numbers: the schema then lists the values, so a new member shows up
+    /// as a change, and an old reader rejects a name it does not know instead of taking any integer.
     /// </summary>
     public static class ContractJson
     {
@@ -34,6 +36,7 @@ namespace Examples.Contracts.After
             RespectRequiredConstructorParameters = true,
             NumberHandling = JsonNumberHandling.Strict,
             AllowDuplicateProperties = false,
+            Converters = { new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false) },
         };
 
         public static T Read<T>(string json) =>

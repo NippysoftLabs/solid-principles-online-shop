@@ -171,9 +171,9 @@ foreach (var (key, content) in new (string, byte[])[]
 
 Console.WriteLine();
 Console.WriteLine("== G. CloudInvoiceArchive via InvoiceService.Archive(order)");
-foreach (var id in new[] { "../o-1", "a/b", "%2F", "", "pedido-\u00F1", new string('9', 300) })
+foreach (var id in new[] { "../o-1", "a/b", "%2F", "", "pedido-\u00F1", new string('9', 300), "o\uD800", "o\uDBFF" })
 {
-    var shown = id.Length > 40 ? $"<{id.Length} x '9'>" : id;
+    var shown = id.Length > 40 ? $"<{id.Length} x '9'>" : string.Concat(id.Select(c => char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
     Show($"order id '{shown}'", () =>
     {
         var location = new InvoiceService(new CloudInvoiceArchive(new CloudBucketClient("invoices-prod")))

@@ -8,7 +8,8 @@ namespace Examples.Contracts.After;
 /// <summary>
 /// Compares two JSON schemas produced by JsonSchemaExporter for the same message, from the point
 /// of view of a reader built for the old version that receives messages written with the new one.
-/// It compares types, properties, the required list, array items and enum values. It does not compare
+/// It compares types, properties (names ignoring case), the required list, array items and enum values.
+/// Enums only show up as values when ContractJson writes them as strings. It does not compare
 /// formats, patterns, ranges or what a value means: an amount that changes from units to cents passes.
 /// </summary>
 public static partial class SchemaCompatibility
@@ -58,7 +59,7 @@ public static partial class SchemaCompatibility
             foreach (var (name, oldProp) in oldProps)
             {
                 var child = $"{path}.{name}";
-                if (newProps is null || !newProps.TryGetPropertyValue(name, out var newProp))
+                if (!TryFindProperty(newProps, name, out var newProp))
                 {
                     if (oldRequired.Contains(name))
                     {
@@ -84,8 +85,32 @@ public static partial class SchemaCompatibility
         _ => [],
     };
 
+    // Names compare ignoring case, the way ContractJson reads them: "amount" renamed to "Amount" still
+    // reaches an old reader. An exact match wins when both spellings exist.
+    private static bool TryFindProperty(JsonObject? properties, string name, out JsonNode? node)
+    {
+        node = null;
+        if (properties is null)
+        {
+            return false;
+        }
+        if (properties.TryGetPropertyValue(name, out node))
+        {
+            return true;
+        }
+        foreach (var (key, value) in properties)
+        {
+            if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                node = value;
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static HashSet<string> Required(JsonObject schema) =>
-        schema["required"] is JsonArray a ? a.Select(n => n!.GetValue<string>()).ToHashSet(StringComparer.Ordinal) : [];
+        schema["required"] is JsonArray a ? a.Select(n => n!.GetValue<string>()).ToHashSet(StringComparer.OrdinalIgnoreCase) : [];
 
     /// <summary>
     /// Versions are MAJOR.MINOR with ASCII digits and no leading zeros. A breaking change needs a

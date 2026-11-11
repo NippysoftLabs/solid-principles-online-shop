@@ -65,6 +65,15 @@ public class OcpTests
     }
 
     [Fact]
+    public void After_import_rejects_a_source_that_skipped_validation()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            Catalog.Import(new SourceDefinition("north", "delimited"), "A1,5"));
+
+        Assert.Equal("source 'north': delimited format needs a delimiter of exactly one character", ex.Message);
+    }
+
+    [Fact]
     public void After_a_bad_row_stops_the_import_with_its_line_number()
     {
         var csv = new SourceDefinition("north", "delimited", ",", HasHeader: true);
