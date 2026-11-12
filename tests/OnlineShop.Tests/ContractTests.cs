@@ -74,6 +74,8 @@ public class ContractTests
 
     public sealed record OrderStatusV2(string OrderId, StatusV2 Status);
 
+    public sealed record OrderStatusAsText(string OrderId, string Status);
+
     [Fact]
     public void A_new_enum_member_is_reported_and_an_old_reader_rejects_it()
     {
@@ -84,6 +86,19 @@ public class ContractTests
         Assert.Throws<JsonException>(() => ContractJson.Read<OrderStatusV1>("""{"orderId":"o-1","status":"Refunded"}"""));
         // Integers are not accepted either: 2 would otherwise be read as an undefined StatusV1.
         Assert.Throws<JsonException>(() => ContractJson.Read<OrderStatusV1>("""{"orderId":"o-1","status":2}"""));
+    }
+
+    [Fact]
+    public void Removing_the_enum_list_is_reported_because_old_readers_reject_unknown_values()
+    {
+        var breaking = SchemaCompatibility.BreakingChanges(
+            SchemaCompatibility.SchemaOf(typeof(OrderStatusV1)), SchemaCompatibility.SchemaOf(typeof(OrderStatusAsText)));
+
+        Assert.Equal(["$.status: enum removed; values are no longer limited to \"New\", \"Paid\""], breaking);
+        // What a writer of the new version may now send, and why it breaks the old reader:
+        Assert.Equal("o-1", ContractJson.Read<OrderStatusAsText>("""{"orderId":"o-1","status":"Shipped"}""").OrderId);
+        Assert.Throws<JsonException>(() => ContractJson.Read<OrderStatusV1>("""{"orderId":"o-1","status":"Shipped"}"""));
+        Assert.Equal("1 breaking change(s) need version 2.0, not 1.1", SchemaCompatibility.CheckVersionBump("1.0", "1.1", breaking));
     }
 
     [Fact]

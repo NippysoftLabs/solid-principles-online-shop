@@ -230,3 +230,18 @@ foreach (var (name, create) in gateways)
         return results;
     });
 }
+
+Console.WriteLine();
+Console.WriteLine("== J. SchemaCompatibility.BreakingChanges(old, new): enum list changes");
+foreach (var (label, oldSchema, newSchema) in new[]
+{
+    ("enum list removed (free text)", """{"type":"object","properties":{"s":{"enum":["new","paid"]}}}""",
+                                      """{"type":"object","properties":{"s":{"type":"string"}}}"""),
+    ("enum value removed", """{"type":"object","properties":{"s":{"enum":["new","paid","refunded"]}}}""",
+                           """{"type":"object","properties":{"s":{"enum":["new","paid"]}}}"""),
+    ("free text becomes an enum", """{"type":"object","properties":{"s":{"type":"string"}}}""",
+                                  """{"type":"object","properties":{"s":{"enum":["new","paid"]}}}"""),
+})
+{
+    Show(label, () => SchemaCompatibility.BreakingChanges(JsonNode.Parse(oldSchema)!, JsonNode.Parse(newSchema)!));
+}

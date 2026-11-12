@@ -8,7 +8,8 @@ namespace Examples.Contracts.After;
 /// <summary>
 /// Compares two JSON schemas produced by JsonSchemaExporter for the same message, from the point
 /// of view of a reader built for the old version that receives messages written with the new one.
-/// It compares types, properties (names ignoring case), the required list, array items and enum values.
+/// It compares types, properties (names ignoring case), the required list, array items and enum values,
+/// and reports a property that loses its enum list.
 /// Enums only show up as values when ContractJson writes them as strings. It does not compare
 /// formats, patterns, ranges or what a value means: an amount that changes from units to cents passes.
 /// </summary>
@@ -42,7 +43,13 @@ public static partial class SchemaCompatibility
             changes.Add($"{path}: type [{string.Join(",", oldTypes)}] became [{string.Join(",", newTypes)}]");
         }
 
-        if (oldObj["enum"] is JsonArray oldEnum && newObj["enum"] is JsonArray newEnum)
+        // An old reader built with JsonStringEnumConverter rejects any value outside its list, so a
+        // property that loses its enum (and becomes free text) can now carry values it cannot read.
+        if (oldObj["enum"] is JsonArray removedEnum && newObj["enum"] is null)
+        {
+            changes.Add($"{path}: enum removed; values are no longer limited to {string.Join(", ", removedEnum.Select(v => v?.ToJsonString()))}");
+        }
+        else if (oldObj["enum"] is JsonArray oldEnum && newObj["enum"] is JsonArray newEnum)
         {
             var known = oldEnum.Select(v => v?.ToJsonString()).ToHashSet();
             foreach (var value in newEnum.Select(v => v?.ToJsonString()).Where(v => !known.Contains(v)))

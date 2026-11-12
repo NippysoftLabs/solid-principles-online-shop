@@ -26,6 +26,22 @@ public class SrpTests
         Assert.Empty(processor.SentEmails);
     }
 
+    [Theory]
+    [InlineData("card-ok", CheckoutResult.Placed, 1, 1)]
+    [InlineData("card-declined", CheckoutResult.Declined, 0, 0)]
+    [InlineData("card-lost-response", CheckoutResult.PaymentUnknown, 0, 0)]
+    public void Before_only_an_approved_payment_saves_the_order_and_sends_the_email(
+        string card, CheckoutResult expected, int savedOrders, int sentEmails)
+    {
+        var store = new InMemoryOrderStore();
+        var processor = new OrderProcessor(new InMemoryPaymentGateway(), store);
+
+        // "Ana Ruiz" has a space, so the greeting works and only the payment status decides.
+        Assert.Equal(expected, processor.Place(new Order("o-1", "Ana Ruiz", 25m), card));
+        Assert.Equal(savedOrders, store.Orders.Count);
+        Assert.Equal(sentEmails, processor.SentEmails.Count);
+    }
+
     [Fact]
     public void After_checkout_charges_and_saves_without_running_any_email_code()
     {
@@ -38,7 +54,7 @@ public class SrpTests
     }
 
     [Fact]
-    public void After_the_email_is_marketing_code_that_reads_a_saved_order()
+    public void After_the_email_is_marketing_code_that_renders_an_order_it_receives()
     {
         Assert.Equal("Hi Ana, your order o-1 is confirmed.", ConfirmationEmail.Render(Ana));
         Assert.Equal("Hi Ana, your order o-2 is confirmed.", ConfirmationEmail.Render(new Order("o-2", "Ana Ruiz", 10m)));
