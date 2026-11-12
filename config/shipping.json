@@ -1,0 +1,5 @@
+[
+  { "name": "standard", "kind": "free-over", "price": 4.99, "threshold": 50 },
+  { "name": "express", "kind": "flat", "price": 9.99 },
+  { "name": "store-pickup", "kind": "free" }
+]

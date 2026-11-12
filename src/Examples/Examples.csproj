@@ -3,5 +3,6 @@
        It references the vendor SDK only because the DIP "before" example calls it directly. -->
   <ItemGroup>
     <ProjectReference Include="..\FakeCloud.Storage\FakeCloud.Storage.csproj" />
+    <ProjectReference Include="..\Orders.Domain\Orders.Domain.csproj" />
   </ItemGroup>
 </Project>

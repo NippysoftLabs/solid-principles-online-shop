@@ -1,30 +1,16 @@
-using System.Globalization;
-using System.Text.Json;
-
 namespace Examples.Ocp.Before;
 
 /// <summary>
-/// BEFORE: every source kind is an arm of a switch. A new kind means editing and redeploying
-/// this class; until someone does, its rows fall into the default arm and are dropped.
+/// BEFORE: every shipping option is an arm of a switch. A new option means editing and redeploying
+/// this class; until someone does, the option falls into the last arm and is charged as standard.
 /// </summary>
-public static class StockImporter
+public static class ShippingCost
 {
-    public static IReadOnlyList<(string Sku, int Quantity)> Import(string kind, string content) => kind switch
+    public static decimal For(string option, decimal orderTotal) => option switch
     {
-        "csv" => ReadCsv(content),
-        "jsonl" => ReadJsonLines(content),
-        _ => [],
+        "standard" => orderTotal >= 50m ? 0m : 4.99m,
+        "express" => 9.99m,
+        // The fallback. "store-pickup" was added to the website, not here, and lands in this arm.
+        _ => 4.99m,
     };
-
-    private static List<(string, int)> ReadCsv(string content) =>
-        content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.TrimEnd('\r').Split(','))
-            .Select(f => (f[0], int.Parse(f[1], CultureInfo.InvariantCulture)))
-            .ToList();
-
-    private static List<(string, int)> ReadJsonLines(string content) =>
-        content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => JsonDocument.Parse(line).RootElement)
-            .Select(e => (e.GetProperty("sku").GetString()!, e.GetProperty("quantity").GetInt32()))
-            .ToList();
 }

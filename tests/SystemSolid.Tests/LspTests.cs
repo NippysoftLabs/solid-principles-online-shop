@@ -1,38 +1,67 @@
 using Examples.Lsp;
 using Examples.Lsp.Before;
+using Examples.Shop;
+using Orders.Domain;
 
 namespace SystemSolid.Tests;
 
 public class LspTests
 {
     [Fact]
-    public void Reference_store_keeps_the_whole_contract()
+    public void Reference_gateway_keeps_the_whole_contract()
     {
-        Assert.Empty(BlobStoreContract.Verify(() => new MemoryBlobStore()));
+        Assert.Empty(PaymentGatewayContract.Verify(() => new InMemoryPaymentGateway()));
     }
 
     [Fact]
-    public void Before_the_naive_file_store_passes_the_happy_path_but_breaks_the_contract()
+    public void Before_the_naive_adapter_passes_the_happy_path_but_breaks_the_contract()
     {
-        var store = new NaiveFileBlobStore(new SimulatedFileSystem());
-        store.Put("invoice-1.pdf", [1, 2, 3]);
-        Assert.Equal([1, 2, 3], store.Get("invoice-1.pdf"));
+        var naive = new NaiveCentsGateway(new CentsPaymentApi());
+        Assert.Equal(new PaymentResult(PaymentStatus.Approved, "charge-1", 20m), naive.Charge("o-1", "card-ok", 20m));
 
-        var violations = BlobStoreContract.Verify(() => new NaiveFileBlobStore(new SimulatedFileSystem()));
+        var violations = PaymentGatewayContract.Verify(() => new NaiveCentsGateway(new CentsPaymentApi()));
 
+        Assert.Equal(12, PaymentGatewayContract.CheckCount);
         Assert.Equal(
         [
-            "keys differing only in case stay apart: wrong result",
-            "trailing period is part of the key: wrong result",
-            "separators are allowed in keys: threw IOException: invalid character in file name '2026/11/report:v1'",
-            "device names are allowed in keys: threw IOException: reserved device name 'CON'",
-            "key of 256 non-ASCII characters: threw PathTooLongException: file name has 256 characters, the limit is 255",
+            "approved card is charged the exact amount: wrong result",
+            "amount under one euro: threw ArgumentOutOfRangeException: amount must be at least 1 cent (Parameter 'amountCents')",
+            "largest allowed amount: wrong result",
+            "declined card returns Declined: threw CardDeclinedException: card declined by the issuer",
+            "same key charges once: wrong result",
+            "three decimals throws ArgumentException: wrong result",
+            "amount over the limit throws ArgumentException: wrong result",
+            "empty key throws ArgumentException: wrong result",
+            "empty card token throws ArgumentException: wrong result",
         ], violations);
     }
 
     [Fact]
-    public void After_the_hashed_file_store_keeps_the_whole_contract()
+    public void Before_the_same_checkout_with_the_naive_adapter_charges_19_for_19_99_and_crashes_on_a_decline()
     {
-        Assert.Empty(BlobStoreContract.Verify(() => new HashedFileBlobStore(new SimulatedFileSystem())));
+        var api = new CentsPaymentApi();
+        var checkout = new Checkout(new NaiveCentsGateway(api), new InMemoryOrderStore());
+
+        Assert.True(checkout.Place(new Order("o-1", "Ana", 19.99m), "card-ok"));
+        Assert.Equal(1900, Assert.Single(api.Charges).AmountCents);
+        Assert.Throws<CardDeclinedException>(() => checkout.Place(new Order("o-2", "Ana", 10m), "card-declined"));
+    }
+
+    [Fact]
+    public void After_the_fixed_adapter_keeps_the_whole_contract()
+    {
+        Assert.Empty(PaymentGatewayContract.Verify(() => new CentsGateway(new CentsPaymentApi())));
+    }
+
+    [Fact]
+    public void After_a_retried_order_is_charged_once()
+    {
+        var api = new CentsPaymentApi();
+        var checkout = new Checkout(new CentsGateway(api), new InMemoryOrderStore());
+        var order = new Order("o-1", "Ana", 19.99m);
+
+        Assert.True(checkout.Place(order, "card-ok"));
+        Assert.True(checkout.Place(order, "card-ok"));
+        Assert.Equal(1999, Assert.Single(api.Charges).AmountCents);
     }
 }

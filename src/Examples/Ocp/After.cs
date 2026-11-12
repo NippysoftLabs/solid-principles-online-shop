@@ -1,171 +1,157 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Examples.Ocp.After;
 
-/// <summary>One entry of config/sources.json.</summary>
-public sealed record SourceDefinition(string Name, string Format, string? Delimiter = null, bool HasHeader = false);
+/// <summary>One entry of config/shipping.json. Price and Threshold are in euros.</summary>
+public sealed record ShippingOption(string Name, string Kind, decimal? Price = null, decimal? Threshold = null);
 
-public sealed record StockRecord(string Sku, int Quantity);
-
-/// <summary>A new format is a new class registered at startup; the catalog does not change.</summary>
-public interface IRecordReader
+/// <summary>A kind of shipping price. A new kind is a new class registered at startup; the catalog does not change.</summary>
+public interface IShippingRule
 {
-    string Format { get; }
+    string Kind { get; }
 
-    /// <summary>Configuration errors this reader can see in a source definition.</summary>
-    IEnumerable<string> Validate(SourceDefinition source);
+    /// <summary>Configuration errors this rule can see in an option.</summary>
+    IEnumerable<string> Validate(ShippingOption option);
 
-    IReadOnlyList<StockRecord> Read(SourceDefinition source, string content);
+    decimal Cost(ShippingOption option, decimal orderTotal);
 }
 
-public sealed class SourceCatalog
+public sealed class ShippingCatalog
 {
-    /// <summary>Drops a leading byte order mark (U+FEFF), splits on "\n" and drops a trailing "\r".</summary>
-    internal static List<string> Lines(string content) =>
-        content.TrimStart('\uFEFF').Split('\n').Select(l => l.TrimEnd('\r')).ToList();
-
-    // Strict on purpose: a misspelled key, a missing value or a null fails when the file is loaded.
+    // Strict on purpose: a misspelled key, a missing value, a null or a price written as a string
+    // fails when the file is loaded.
     private static readonly JsonSerializerOptions ConfigJson = new(JsonSerializerOptions.Web)
     {
         PropertyNameCaseInsensitive = false,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         RespectNullableAnnotations = true,
         RespectRequiredConstructorParameters = true,
-        AllowDuplicateProperties = false,
-    };
-
-    private readonly Dictionary<string, IRecordReader> _readers;
-
-    public SourceCatalog(IEnumerable<IRecordReader> readers)
-    {
-        // ToDictionary throws if two readers claim the same format.
-        _readers = readers.ToDictionary(r => r.Format, StringComparer.Ordinal);
-    }
-
-    public static IReadOnlyList<SourceDefinition> Load(string json) =>
-        JsonSerializer.Deserialize<List<SourceDefinition>>(json, ConfigJson)
-        ?? throw new JsonException("sources file is null");
-
-    /// <summary>Every error in the list, so CI or startup can fail with all of them at once.</summary>
-    public IReadOnlyList<string> Validate(IReadOnlyList<SourceDefinition> sources)
-    {
-        var errors = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var source in sources)
-        {
-            if (string.IsNullOrWhiteSpace(source.Name))
-            {
-                errors.Add("a source has an empty name");
-                continue;
-            }
-            if (!seen.Add(source.Name))
-            {
-                errors.Add($"source '{source.Name}': name used twice (names compare ignoring case)");
-            }
-            if (!_readers.TryGetValue(source.Format, out var reader))
-            {
-                errors.Add($"source '{source.Name}': no reader for format '{source.Format}'");
-                continue;
-            }
-            errors.AddRange(reader.Validate(source).Select(e => $"source '{source.Name}': {e}"));
-        }
-        return errors;
-    }
-
-    public IReadOnlyList<StockRecord> Import(SourceDefinition source, string content)
-    {
-        // Validate already ran at startup; this repeats it for a source built in code that skipped it.
-        var errors = Validate([source]);
-        if (errors.Count > 0)
-        {
-            throw new InvalidOperationException(string.Join("; ", errors));
-        }
-        return _readers[source.Format].Read(source, content);
-    }
-}
-
-/// <summary>CSV, TSV or any one-character delimiter: a new partner with tabs is a config entry.</summary>
-public sealed class DelimitedReader : IRecordReader
-{
-    public string Format => "delimited";
-
-    public IEnumerable<string> Validate(SourceDefinition source)
-    {
-        if (source.Delimiter is not { Length: 1 })
-        {
-            yield return "delimited format needs a delimiter of exactly one character";
-        }
-    }
-
-    public IReadOnlyList<StockRecord> Read(SourceDefinition source, string content)
-    {
-        var delimiter = source.Delimiter![0];
-        var lines = SourceCatalog.Lines(content);
-        var records = new List<StockRecord>();
-        for (var i = source.HasHeader ? 1 : 0; i < lines.Count; i++)
-        {
-            if (lines[i].Length == 0)
-            {
-                continue;
-            }
-            var fields = lines[i].Split(delimiter);
-            // A bad row stops the import with its line number instead of being skipped.
-            if (fields.Length != 2 || fields[0].Length == 0
-                || !int.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out var quantity))
-            {
-                throw new FormatException($"source '{source.Name}', line {i + 1}: expected sku{delimiter}quantity");
-            }
-            records.Add(new StockRecord(fields[0], quantity));
-        }
-        return records;
-    }
-}
-
-/// <summary>One JSON object per line: {"sku":"A1","quantity":5}.</summary>
-public sealed class JsonLinesReader : IRecordReader
-{
-    private static readonly JsonSerializerOptions RowJson = new(JsonSerializerOptions.Web)
-    {
-        RespectNullableAnnotations = true,
-        RespectRequiredConstructorParameters = true,
         NumberHandling = JsonNumberHandling.Strict,
         AllowDuplicateProperties = false,
     };
 
-    public string Format => "jsonl";
+    private readonly Dictionary<string, IShippingRule> _rules;
+    private readonly Dictionary<string, ShippingOption> _options;
 
-    public IEnumerable<string> Validate(SourceDefinition source)
+    /// <summary>Throws InvalidOperationException with every configuration error, so startup fails with all of them at once.</summary>
+    public ShippingCatalog(IEnumerable<IShippingRule> rules, IReadOnlyList<ShippingOption> options)
     {
-        if (source.Delimiter is not null)
+        // ToDictionary throws if two rules claim the same kind.
+        _rules = rules.ToDictionary(r => r.Kind, StringComparer.Ordinal);
+        var errors = Check(_rules, options);
+        if (errors.Count > 0)
         {
-            yield return "jsonl format takes no delimiter";
+            throw new InvalidOperationException(string.Join("; ", errors));
         }
-        if (source.HasHeader)
-        {
-            yield return "jsonl format has no header line";
-        }
+        _options = options.ToDictionary(o => o.Name, StringComparer.Ordinal);
     }
 
-    public IReadOnlyList<StockRecord> Read(SourceDefinition source, string content)
+    public IEnumerable<string> OptionNames => _options.Keys;
+
+    public static IReadOnlyList<ShippingOption> Parse(string json) =>
+        JsonSerializer.Deserialize<List<ShippingOption>>(json, ConfigJson)
+        ?? throw new JsonException("shipping file is null");
+
+    /// <summary>The error list without building a catalog, for a CI step or a test.</summary>
+    public static IReadOnlyList<string> Check(IEnumerable<IShippingRule> rules, IReadOnlyList<ShippingOption> options) =>
+        Check(rules.ToDictionary(r => r.Kind, StringComparer.Ordinal), options);
+
+    /// <summary>Cost of an option for an order total. An unknown option throws instead of falling back to another price.</summary>
+    public decimal Quote(string optionName, decimal orderTotal)
     {
-        var lines = SourceCatalog.Lines(content);
-        var records = new List<StockRecord>();
-        for (var i = 0; i < lines.Count; i++)
+        if (!_options.TryGetValue(optionName, out var option))
         {
-            if (lines[i].Length == 0)
+            throw new ArgumentException($"no shipping option '{optionName}'", nameof(optionName));
+        }
+        if (orderTotal < 0)
+        {
+            throw new ArgumentException($"order total must be 0 or more; got {orderTotal}", nameof(orderTotal));
+        }
+        return _rules[option.Kind].Cost(option, orderTotal);
+    }
+
+    private static List<string> Check(Dictionary<string, IShippingRule> rules, IReadOnlyList<ShippingOption> options)
+    {
+        var errors = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var option in options)
+        {
+            if (string.IsNullOrWhiteSpace(option.Name))
             {
+                errors.Add("an option has an empty name");
                 continue;
             }
-            var record = JsonSerializer.Deserialize<StockRecord>(lines[i], RowJson);
-            // Same rule as the delimited reader: a non-empty sku and a quantity of 0 or more.
-            if (record is null || record.Sku.Length == 0 || record.Quantity < 0)
+            if (!seen.Add(option.Name))
             {
-                throw new FormatException($"source '{source.Name}', line {i + 1}: expected a non-empty sku and a quantity of 0 or more");
+                errors.Add($"option '{option.Name}': name used twice (names compare ignoring case)");
             }
-            records.Add(record);
+            if (!rules.TryGetValue(option.Kind, out var rule))
+            {
+                errors.Add($"option '{option.Name}': no rule for kind '{option.Kind}'");
+                continue;
+            }
+            errors.AddRange(rule.Validate(option).Select(e => $"option '{option.Name}': {e}"));
         }
-        return records;
+        return errors;
     }
+
+    internal static bool IsPrice(decimal? value) => value is >= 0 && decimal.Round(value.Value, 2) == value.Value;
+}
+
+/// <summary>The same price for every order.</summary>
+public sealed class FlatRule : IShippingRule
+{
+    public string Kind => "flat";
+
+    public IEnumerable<string> Validate(ShippingOption option)
+    {
+        if (!ShippingCatalog.IsPrice(option.Price))
+        {
+            yield return "flat needs a price of 0 or more with at most 2 decimals";
+        }
+        if (option.Threshold is not null)
+        {
+            yield return "flat takes no threshold";
+        }
+    }
+
+    public decimal Cost(ShippingOption option, decimal orderTotal) => option.Price!.Value;
+}
+
+/// <summary>Free from the threshold on (inclusive), the price below it.</summary>
+public sealed class FreeOverRule : IShippingRule
+{
+    public string Kind => "free-over";
+
+    public IEnumerable<string> Validate(ShippingOption option)
+    {
+        if (!ShippingCatalog.IsPrice(option.Price))
+        {
+            yield return "free-over needs a price of 0 or more with at most 2 decimals";
+        }
+        if (option.Threshold is not > 0)
+        {
+            yield return "free-over needs a threshold greater than 0";
+        }
+    }
+
+    public decimal Cost(ShippingOption option, decimal orderTotal) =>
+        orderTotal >= option.Threshold!.Value ? 0m : option.Price!.Value;
+}
+
+/// <summary>Always free, such as picking the order up in a store.</summary>
+public sealed class FreeRule : IShippingRule
+{
+    public string Kind => "free";
+
+    public IEnumerable<string> Validate(ShippingOption option)
+    {
+        if (option.Price is not null || option.Threshold is not null)
+        {
+            yield return "free takes no price and no threshold";
+        }
+    }
+
+    public decimal Cost(ShippingOption option, decimal orderTotal) => 0m;
 }

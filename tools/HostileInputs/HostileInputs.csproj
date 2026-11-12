@@ -5,5 +5,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Examples\Examples.csproj" />
     <ProjectReference Include="..\..\src\Orders.Infrastructure\Orders.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Orders.Notifications\Orders.Notifications.csproj" />
   </ItemGroup>
 </Project>

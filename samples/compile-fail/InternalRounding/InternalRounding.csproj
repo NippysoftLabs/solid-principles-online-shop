@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <!-- Not in SystemSolid.slnx: this project must fail to build. See samples/compile-fail/README.md. -->
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Orders.Publishing\Orders.Publishing.csproj" />
-  </ItemGroup>
-</Project>

@@ -1,3 +1,4 @@
 namespace Orders.Domain;
 
-public sealed record Order(string Id, string Customer, decimal Amount);
+/// <summary>An order in the online shop. Total is in euros.</summary>
+public sealed record Order(string Id, string CustomerName, decimal Total);

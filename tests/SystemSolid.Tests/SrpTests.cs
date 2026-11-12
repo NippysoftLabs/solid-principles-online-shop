@@ -1,30 +1,55 @@
+using Examples.Lsp;
+using Examples.Shop;
 using Examples.Srp.Before;
 using Orders.Domain;
-using Orders.Publishing;
+using Orders.Notifications;
 
 namespace SystemSolid.Tests;
 
 public class SrpTests
 {
-    [Fact]
-    public void Before_a_finance_rounding_change_lets_an_order_over_the_credit_limit_through()
-    {
-        var beforeChange = new OrderPipeline(amountDecimals: 2).Process("c1,100.40", creditLimit: 100m);
-        var afterChange = new OrderPipeline(amountDecimals: 0).Process("c1,100.40", creditLimit: 100m);
+    private static readonly Order Ana = new("o-1", "Ana", 25m);
 
-        Assert.False(beforeChange.Accepted);
-        // Finance only wanted whole units on the invoice; the risk check changed with it.
-        Assert.True(afterChange.Accepted);
-        Assert.Equal("INVOICE c1 100", afterChange.Invoice);
+    [Fact]
+    public void Before_a_marketing_change_to_the_email_shows_an_error_after_the_card_was_charged()
+    {
+        var store = new InMemoryOrderStore();
+        var api = new CentsPaymentApi();
+        var processor = new OrderProcessor(new CentsGateway(api), store);
+
+        // The customer sees an error page...
+        Assert.Throws<ArgumentOutOfRangeException>(() => processor.Place(Ana, "card-ok"));
+
+        // ...but was charged and the order exists. No email went out.
+        Assert.Equal(2500, Assert.Single(api.Charges).AmountCents);
+        Assert.Single(store.Orders);
+        Assert.Empty(processor.SentEmails);
     }
 
     [Fact]
-    public void After_the_same_finance_change_only_changes_the_invoice()
+    public void After_checkout_charges_and_saves_without_running_any_email_code()
     {
-        var order = new Order("o-1", "c1", 100.40m);
+        var store = new InMemoryOrderStore();
+        var api = new CentsPaymentApi();
 
-        Assert.False(CreditPolicy.Accepts(order, creditLimit: 100m));
-        Assert.Equal("INVOICE c1 100.40", new InvoicePublisher(decimals: 2).Format(order));
-        Assert.Equal("INVOICE c1 100", new InvoicePublisher(decimals: 0).Format(order));
+        Assert.True(new Checkout(new CentsGateway(api), store).Place(Ana, "card-ok"));
+        Assert.Equal(2500, Assert.Single(api.Charges).AmountCents);
+        Assert.Single(store.Orders);
+    }
+
+    [Fact]
+    public void After_the_email_is_marketing_code_that_reads_a_saved_order()
+    {
+        Assert.Equal("Hi Ana, your order o-1 is confirmed.", ConfirmationEmail.Render(Ana));
+        Assert.Equal("Hi Ana, your order o-2 is confirmed.", ConfirmationEmail.Render(new Order("o-2", "Ana Ruiz", 10m)));
+    }
+
+    [Fact]
+    public void After_a_declined_card_saves_nothing()
+    {
+        var store = new InMemoryOrderStore();
+
+        Assert.False(new Checkout(new InMemoryPaymentGateway(), store).Place(Ana, "card-declined"));
+        Assert.Empty(store.Orders);
     }
 }

@@ -1,5 +1,0 @@
-[
-  { "name": "warehouse-north", "format": "delimited", "delimiter": ",", "hasHeader": true },
-  { "name": "partner-feed", "format": "jsonl" },
-  { "name": "partner-tsv", "format": "delimited", "delimiter": "\t" }
-]

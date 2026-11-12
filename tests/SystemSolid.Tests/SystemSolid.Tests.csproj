@@ -12,13 +12,13 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Orders.Domain\Orders.Domain.csproj" />
-    <ProjectReference Include="..\..\src\Orders.Publishing\Orders.Publishing.csproj" />
+    <ProjectReference Include="..\..\src\Orders.Notifications\Orders.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Orders.Infrastructure\Orders.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Examples\Examples.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Copied next to the test assembly so the tests read the same files CI checks in. -->
-    <None Include="..\..\config\sources.json" Link="config\sources.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\config\shipping.json" Link="config\shipping.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Snapshots\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

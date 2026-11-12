@@ -9,6 +9,7 @@ using Examples.Ocp.After;
 using FakeCloud.Storage;
 using Orders.Domain;
 using Orders.Infrastructure;
+using Orders.Notifications;
 using V11 = Examples.Contracts.After.V1_1.OrderPlaced;
 
 if (args is ["schemas"])
@@ -114,70 +115,95 @@ foreach (var (oldV, newV) in new[]
 }
 
 Console.WriteLine();
-Console.WriteLine("== D. SourceCatalog.Load(sources file)");
-var catalog = new SourceCatalog([new DelimitedReader(), new JsonLinesReader()]);
+Console.WriteLine("== D. ShippingCatalog.Check(rules, ShippingCatalog.Parse(shipping file))");
+IShippingRule[] rules = [new FlatRule(), new FreeOverRule(), new FreeRule()];
 foreach (var json in new[]
 {
-    """[{"name":"p","format":"delimited","delimeter":","}]""",
-    """[{"name":null,"format":"jsonl"}]""",
-    """[{"name":"p"}]""",
-    """[{"name":"p","format":"jsonl"},]""",
-    """{"name":"p","format":"jsonl"}""",
-    """[{"name":"p","format":"delimited","delimiter":",","hasHeader":"true"}]""",
-    """[{"Name":"p","Format":"jsonl"}]""",
-    """[{"name":"p","format":"delimited","delimiter":""}]""",
+    """[{"name":"express","kind":"flat","prize":9.99}]""",
+    """[{"name":"express","kind":"flat","price":"9.99"}]""",
+    """[{"name":"express","kind":"flat","price":null}]""",
+    """[{"name":null,"kind":"free"}]""",
+    """[{"name":"express"}]""",
+    """[{"name":"express","kind":"flat","price":9.99,"price":0}]""",
+    """[{"Name":"express","Kind":"flat","Price":9.99}]""",
+    """[{"name":"express","kind":"flat","price":1e400}]""",
+    """[{"name":"express","kind":"FLAT","price":9.99}]""",
+    """[{"name":"standard","kind":"free-over","price":4.99,"threshold":-50}]""",
+    """[{"name":"express","kind":"flat","price":0.001}]""",
+    """[{"name":"express","kind":"flat","price":9.990}]""",
+    """[{"name":"express","kind":"flat","price":9.99},]""",
+    """{"name":"express","kind":"flat","price":9.99}""",
+    """[]""",
 })
 {
-    Show(json, () => catalog.Validate(SourceCatalog.Load(json)));
+    Show(json, () => ShippingCatalog.Check(rules, ShippingCatalog.Parse(json)));
 }
 
 Console.WriteLine();
-Console.WriteLine("== E. SourceCatalog.Import(source, content)");
-var csv = new SourceDefinition("north", "delimited", ",");
-var jsonl = new SourceDefinition("feed", "jsonl");
-foreach (var (source, content) in new[]
+Console.WriteLine("== E. ShippingCatalog.Quote(option, order total), with config/shipping.json");
+var shipping = new ShippingCatalog(rules, ShippingCatalog.Parse(File.ReadAllText(Path.Combine("config", "shipping.json"))));
+foreach (var (option, total) in new[]
 {
-    (csv, "A1,+5"), (csv, "A1, 5"), (csv, "A1,\u0665"), (csv, "A1,5\r\nB2,6\r\n"), (csv, "\uFEFFA1,5"),
-    (csv, "A1,5,extra"), (csv, "A1,99999999999"), (jsonl, "null"), (jsonl, """{"sku":"A1","quantity":-1}"""),
-    (jsonl, """{"sku":"A1","quantity":1.5}"""), (jsonl, """{"sku":"A1","quantity":"5"}"""),
+    ("store-pickup", 30m), ("Store-Pickup", 30m), (" express", 30m), ("", 30m), ("standard", 49.995m),
+    ("standard", 50m), ("standard", -1m), ("express", 0m), ("standard", decimal.MaxValue),
 })
 {
-    var shown = content.Replace("\r", "\\r").Replace("\n", "\\n").Replace("\uFEFF", "<BOM>").Replace("\u0665", "<U+0665>");
-    Show($"{source.Format}: {shown}", () => catalog.Import(source, content));
+    Show($"'{option}', {total}", () => shipping.Quote(option, total));
 }
 
 Console.WriteLine();
-Console.WriteLine("== F. IBlobStore.Put(key, content) then Get(key), per store");
-foreach (var (key, content) in new (string, byte[])[]
+Console.WriteLine("== F. IPaymentGateway.Charge(key, card, amount), per gateway");
+var payments = new (string Label, string Key, string Card, decimal Amount)[]
 {
-    ("a\0b", [1]), (".", [1]), ("NUL.txt", [1]), ("COM\u00B9", [1]), ("x", null!),
-})
+    ("0.001", "k", "card-ok", 0.001m),
+    ("19.990", "k", "card-ok", 19.990m),
+    ("-0.01", "k", "card-ok", -0.01m),
+    ("999999.995", "k", "card-ok", 999999.995m),
+    ("decimal.MaxValue", "k", "card-ok", decimal.MaxValue),
+    ("key ' ' (one space), 10", " ", "card-ok", 10m),
+    ("card ' ' (one space), 10", "k", " ", 10m),
+    ("card null, 10", "k", null!, 10m),
+    ("card 'CARD-DECLINED', 10", "k", "CARD-DECLINED", 10m),
+};
+var gateways = new (string Name, Func<IPaymentGateway> Create)[]
 {
-    var shownKey = key.Replace("\0", "\\0").Replace("\u00B9", "<U+00B9>");
-    foreach (var (name, store) in new (string, IBlobStore)[]
+    ("reference", () => new InMemoryPaymentGateway()),
+    ("naive", () => new NaiveCentsGateway(new CentsPaymentApi())),
+    ("fixed", () => new CentsGateway(new CentsPaymentApi())),
+};
+foreach (var (label, key, card, amount) in payments)
+{
+    foreach (var (name, create) in gateways)
     {
-        ("memory", new MemoryBlobStore()),
-        ("naive", new NaiveFileBlobStore(new SimulatedFileSystem())),
-        ("hashed", new HashedFileBlobStore(new SimulatedFileSystem())),
-    })
-    {
-        Show($"{name}: key '{shownKey}', content {(content is null ? "null" : "[1]")}", () =>
-        {
-            store.Put(key, content!);
-            return store.Get(key);
-        });
+        Show($"{name}: {label}", () => create().Charge(key, card, amount));
     }
 }
+foreach (var (name, create) in gateways)
+{
+    Show($"{name}: key 'k' charged 10, then key 'k' again with 99", () =>
+    {
+        var gateway = create();
+        return new[] { gateway.Charge("k", "card-ok", 10m), gateway.Charge("k", "card-ok", 99m) };
+    });
+}
 
 Console.WriteLine();
-Console.WriteLine("== G. CloudInvoiceArchive via InvoiceService.Archive(order)");
+Console.WriteLine("== G. ConfirmationEmail.Render(order) by customer name");
+foreach (var name in new[] { "", "  Ana  ", "Ana\tRuiz", "José Ruiz", "<b>Ana</b> Ruiz", null! })
+{
+    var shown = name is null ? "null" : $"'{name.Replace("\t", "\\t")}'";
+    Show($"name {shown}", () => ConfirmationEmail.Render(new Order("o-1", name!, 1m)));
+}
+
+Console.WriteLine();
+Console.WriteLine("== H. CloudInvoiceArchive via InvoiceService.Archive(order)");
 foreach (var id in new[] { "../o-1", "a/b", "%2F", "", "pedido-\u00F1", new string('9', 300), "o\uD800", "o\uDBFF" })
 {
     var shown = id.Length > 40 ? $"<{id.Length} x '9'>" : string.Concat(id.Select(c => char.IsSurrogate(c) ? $"\\u{(int)c:X4}" : c.ToString()));
     Show($"order id '{shown}'", () =>
     {
         var location = new InvoiceService(new CloudInvoiceArchive(new CloudBucketClient("invoices-prod")))
-            .Archive(new Order(id, "c1", 1m));
+            .Archive(new Order(id, "Ana", 1m));
         return location.Length > 80 ? $"{location[..60]}... ({location.Length} chars)" : location;
     });
 }

@@ -1,8 +1,7 @@
-using System.Reflection;
 using FakeCloud.Storage;
 using Orders.Domain;
 using Orders.Infrastructure;
-using Orders.Publishing;
+using Orders.Notifications;
 
 namespace SystemSolid.Tests;
 
@@ -20,24 +19,22 @@ public class ArchitectureTests
     [Fact]
     public void Domain_references_only_framework_assemblies()
     {
-        Assert.All(ReferencesOf(typeof(CreditPolicy)), name =>
+        Assert.All(ReferencesOf(typeof(Checkout)), name =>
             Assert.True(name.StartsWith("System.", StringComparison.Ordinal), $"Orders.Domain references {name}"));
+    }
+
+    [Fact]
+    public void Notifications_depend_on_checkout_and_never_the_other_way()
+    {
+        Assert.Contains("Orders.Domain", ReferencesOf(typeof(ConfirmationEmail)));
+        Assert.DoesNotContain("Orders.Notifications", ReferencesOf(typeof(Checkout)));
     }
 
     [Fact]
     public void Only_infrastructure_references_the_vendor_sdk_among_the_after_projects()
     {
         Assert.Contains("FakeCloud.Storage", ReferencesOf(typeof(CloudInvoiceArchive)));
-        Assert.DoesNotContain("FakeCloud.Storage", ReferencesOf(typeof(InvoicePublisher)));
-    }
-
-    [Fact]
-    public void Invoice_rounding_is_not_visible_outside_publishing()
-    {
-        var rounding = typeof(InvoicePublisher).Assembly.GetType("Orders.Publishing.InvoiceRounding")!;
-
-        Assert.False(rounding.IsPublic);
-        Assert.Null(typeof(InvoicePublisher).Assembly.GetCustomAttribute<System.Runtime.CompilerServices.InternalsVisibleToAttribute>());
+        Assert.DoesNotContain("FakeCloud.Storage", ReferencesOf(typeof(ConfirmationEmail)));
     }
 
     [Fact]

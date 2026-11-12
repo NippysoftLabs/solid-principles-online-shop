@@ -2,7 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/FakeCloud.Storage/FakeCloud.Storage.csproj" />
     <Project Path="src/Orders.Domain/Orders.Domain.csproj" />
-    <Project Path="src/Orders.Publishing/Orders.Publishing.csproj" />
+    <Project Path="src/Orders.Notifications/Orders.Notifications.csproj" />
     <Project Path="src/Orders.Infrastructure/Orders.Infrastructure.csproj" />
     <Project Path="src/Examples/Examples.csproj" />
   </Folder>
