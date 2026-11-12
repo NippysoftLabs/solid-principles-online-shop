@@ -22,7 +22,7 @@ public sealed class OrderProcessor(IPaymentGateway payments, IOrderStore orders)
             case PaymentStatus.Declined:
                 return CheckoutResult.Declined;
             default:
-                // Unknown (or a status this code does not know): not paid as far as we know, so the
+                // Unknown (or a status this code does not know): we do not know whether it was paid, so the
                 // order is not saved as paid and no confirmation goes out.
                 return CheckoutResult.PaymentUnknown;
         }
