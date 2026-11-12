@@ -15,9 +15,12 @@ namespace Examples.Lsp
             {
                 return first;
             }
-            var result = cardToken == "card-declined"
-                ? new PaymentResult(PaymentStatus.Declined, "", 0m)
-                : new PaymentResult(PaymentStatus.Approved, $"charge-{++_next}", amount);
+            if (cardToken == "card-declined")
+            {
+                // Not stored: a declined charge does not use up the key.
+                return new PaymentResult(PaymentStatus.Declined, "", 0m);
+            }
+            var result = new PaymentResult(PaymentStatus.Approved, $"charge-{++_next}", amount);
             _byKey[idempotencyKey] = result;
             return result;
         }

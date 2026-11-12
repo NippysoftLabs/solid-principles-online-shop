@@ -9,7 +9,8 @@ namespace Orders.Domain;
 /// and charges nothing (see <see cref="PaymentInput.Check"/>).</item>
 /// <item>An approved charge reports the exact amount charged.</item>
 /// <item>A declined card returns <see cref="PaymentStatus.Declined"/>; it does not throw.</item>
-/// <item>A second call with the same idempotency key returns the first result and charges nothing new.</item>
+/// <item>After an approved charge, a second call with the same idempotency key returns that charge and charges nothing new.</item>
+/// <item>A declined charge does not use up the key: the same key can be charged again, for example with another card.</item>
 /// </list>
 /// </summary>
 public interface IPaymentGateway

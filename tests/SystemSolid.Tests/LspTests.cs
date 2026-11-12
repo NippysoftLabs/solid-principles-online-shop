@@ -21,13 +21,14 @@ public class LspTests
 
         var violations = PaymentGatewayContract.Verify(() => new NaiveCentsGateway(new CentsPaymentApi()));
 
-        Assert.Equal(12, PaymentGatewayContract.CheckCount);
+        Assert.Equal(13, PaymentGatewayContract.CheckCount);
         Assert.Equal(
         [
             "approved card is charged the exact amount: wrong result",
             "amount under one euro: threw ArgumentOutOfRangeException: amount must be at least 1 cent (Parameter 'amountCents')",
             "largest allowed amount: wrong result",
             "declined card returns Declined: threw CardDeclinedException: card declined by the issuer",
+            "after a decline the same key can be charged with another card: threw CardDeclinedException: card declined by the issuer",
             "same key charges once: wrong result",
             "three decimals throws ArgumentException: wrong result",
             "amount over the limit throws ArgumentException: wrong result",
@@ -51,6 +52,19 @@ public class LspTests
     public void After_the_fixed_adapter_keeps_the_whole_contract()
     {
         Assert.Empty(PaymentGatewayContract.Verify(() => new CentsGateway(new CentsPaymentApi())));
+    }
+
+    [Fact]
+    public void After_a_declined_order_can_be_paid_with_another_card()
+    {
+        foreach (var gateway in new IPaymentGateway[] { new InMemoryPaymentGateway(), new CentsGateway(new CentsPaymentApi()) })
+        {
+            var checkout = new Checkout(gateway, new InMemoryOrderStore());
+            var order = new Order("o-1", "Ana", 19.99m);
+
+            Assert.False(checkout.Place(order, "card-declined"));
+            Assert.True(checkout.Place(order, "card-ok"));
+        }
     }
 
     [Fact]

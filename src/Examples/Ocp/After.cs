@@ -45,9 +45,11 @@ public sealed class ShippingCatalog
             throw new InvalidOperationException(string.Join("; ", errors));
         }
         _options = options.ToDictionary(o => o.Name, StringComparer.Ordinal);
+        OptionNames = options.Select(o => o.Name).ToArray();
     }
 
-    public IEnumerable<string> OptionNames => _options.Keys;
+    /// <summary>Option names in the order of the configuration file.</summary>
+    public IReadOnlyList<string> OptionNames { get; }
 
     public static IReadOnlyList<ShippingOption> Parse(string json) =>
         JsonSerializer.Deserialize<List<ShippingOption>>(json, ConfigJson)

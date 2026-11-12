@@ -14,6 +14,11 @@ public static class PaymentGatewayContract
         ("amount under one euro", g => g.Charge("k1", "card-ok", 0.05m) is { Status: PaymentStatus.Approved, Amount: 0.05m }),
         ("largest allowed amount", g => g.Charge("k1", "card-ok", PaymentInput.MaxAmount).Amount == PaymentInput.MaxAmount),
         ("declined card returns Declined", g => g.Charge("k1", "card-declined", 10m) is { Status: PaymentStatus.Declined, Amount: 0m }),
+        ("after a decline the same key can be charged with another card", g =>
+        {
+            g.Charge("k1", "card-declined", 10m);
+            return g.Charge("k1", "card-ok", 10m) is { Status: PaymentStatus.Approved, Amount: 10m };
+        }),
         ("same key charges once", g => g.Charge("k1", "card-ok", 10m).ChargeId == g.Charge("k1", "card-ok", 10m).ChargeId),
         ("different keys are different charges", g => g.Charge("k1", "card-ok", 10m).ChargeId != g.Charge("k2", "card-ok", 10m).ChargeId),
         ("zero amount throws ArgumentException", g => Throws<ArgumentException>(() => g.Charge("k1", "card-ok", 0m))),

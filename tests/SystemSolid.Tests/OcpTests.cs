@@ -80,7 +80,8 @@ public class OcpTests
     {
         var catalog = new ShippingCatalog([.. Rules, new HalfPriceRule()], [new ShippingOption("weekend", "half-price", Price: 9.99m)]);
 
-        Assert.Equal(4.995m, catalog.Quote("weekend", 30m));
+        // 9.99 / 2 = 4.995, rounded to cents like every other price: 5.00.
+        Assert.Equal(5.00m, catalog.Quote("weekend", 30m));
     }
 
     // Written only in this test: no line of ShippingCatalog was edited to accept it.
@@ -88,8 +89,15 @@ public class OcpTests
     {
         public string Kind => "half-price";
 
-        public IEnumerable<string> Validate(ShippingOption option) => [];
+        public IEnumerable<string> Validate(ShippingOption option)
+        {
+            if (option.Price is not >= 0)
+            {
+                yield return "half-price needs a price of 0 or more";
+            }
+        }
 
-        public decimal Cost(ShippingOption option, decimal orderTotal) => option.Price!.Value / 2;
+        public decimal Cost(ShippingOption option, decimal orderTotal) =>
+            Math.Round(option.Price!.Value / 2, 2, MidpointRounding.AwayFromZero);
     }
 }
