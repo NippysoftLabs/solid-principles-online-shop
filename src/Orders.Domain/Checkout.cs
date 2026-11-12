@@ -27,7 +27,8 @@ public sealed class Checkout(IPaymentGateway payments, IOrderStore orders)
 
 /// <summary>
 /// Placed: charged and saved. Declined: nothing was charged; the customer can try another card.
-/// PaymentUnknown: the provider did not answer; the order is not saved yet, and the customer should
-/// not pay again with another card. Retrying the same order is safe: it reuses the same key.
+/// PaymentUnknown: the provider did not answer; the order is not saved yet. Do not tell the customer the
+/// card was declined: they may already have been charged. Retrying the same order is safe: it reuses the
+/// same key, and the gateway returns the charge if it happened.
 /// </summary>
 public enum CheckoutResult { Placed, Declined, PaymentUnknown }

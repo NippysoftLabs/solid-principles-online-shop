@@ -23,7 +23,8 @@ public interface IPaymentGateway
 
 /// <summary>
 /// Declined: the provider answered "no"; nothing was charged. Unknown: there was no answer, so nobody
-/// knows yet; the caller must not treat it as declined (another card could charge the customer twice).
+/// knows yet. Treating it as declined tells a customer who may have been charged that the card was
+/// declined: if they leave, they are charged with no order; if they place a new order, they can be charged twice.
 /// </summary>
 public enum PaymentStatus { Approved, Declined, Unknown }
 
