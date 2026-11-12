@@ -3,12 +3,13 @@ using Orders.Domain;
 using Orders.Infrastructure;
 using Orders.Notifications;
 
-namespace SystemSolid.Tests;
+namespace OnlineShop.Tests;
 
 /// <summary>
-/// The compiler stops code from using a project it does not reference. These tests stop the
-/// reference itself: they read the assembly references the compiler kept, which are the ones the
-/// code actually uses. A ProjectReference that nothing uses leaves no trace here.
+/// The architectural rule (the domain depends only on the framework) is set here, by these tests.
+/// The compiler only stops code from using a project it does not reference; it does not stop anyone
+/// from adding the reference. These tests read the assembly references the compiler kept, which are the
+/// ones the code actually uses, so a ProjectReference that nothing uses leaves no trace here.
 /// </summary>
 public class ArchitectureTests
 {

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Not in SolidPrinciplesOnlineShop.slnx: compiles the real ISP example plus a finance change and two
+       tracking-page test doubles. It must fail to build; see samples/compile-fail/README.md. -->
+  <ItemGroup>
+    <Compile Include="..\..\..\src\Examples\Isp\OrderOperations.cs" />
+  </ItemGroup>
+</Project>

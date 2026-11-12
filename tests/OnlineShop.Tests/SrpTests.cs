@@ -4,7 +4,7 @@ using Examples.Srp.Before;
 using Orders.Domain;
 using Orders.Notifications;
 
-namespace SystemSolid.Tests;
+namespace OnlineShop.Tests;
 
 public class SrpTests
 {
@@ -32,7 +32,7 @@ public class SrpTests
         var store = new InMemoryOrderStore();
         var api = new CentsPaymentApi();
 
-        Assert.True(new Checkout(new CentsGateway(api), store).Place(Ana, "card-ok"));
+        Assert.Equal(CheckoutResult.Placed, new Checkout(new CentsGateway(api), store).Place(Ana, "card-ok"));
         Assert.Equal(2500, Assert.Single(api.Charges).AmountCents);
         Assert.Single(store.Orders);
     }
@@ -49,7 +49,7 @@ public class SrpTests
     {
         var store = new InMemoryOrderStore();
 
-        Assert.False(new Checkout(new InMemoryPaymentGateway(), store).Place(Ana, "card-declined"));
+        Assert.Equal(CheckoutResult.Declined, new Checkout(new InMemoryPaymentGateway(), store).Place(Ana, "card-declined"));
         Assert.Empty(store.Orders);
     }
 }

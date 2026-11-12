@@ -2,7 +2,11 @@ using Orders.Domain;
 
 namespace Examples.Lsp
 {
-    /// <summary>Reference implementation, used to define what "same behaviour" means. "card-declined" is declined.</summary>
+    /// <summary>
+    /// Reference implementation, used to define what "same behaviour" means. "card-declined" is declined.
+    /// "card-lost-response" models a charge that happened but whose answer never arrived: it is stored
+    /// under the key and the caller gets Unknown.
+    /// </summary>
     public sealed class InMemoryPaymentGateway : IPaymentGateway
     {
         private readonly Dictionary<string, PaymentResult> _byKey = new(StringComparer.Ordinal);
@@ -22,13 +26,14 @@ namespace Examples.Lsp
             }
             var result = new PaymentResult(PaymentStatus.Approved, $"charge-{++_next}", amount);
             _byKey[idempotencyKey] = result;
-            return result;
+            return cardToken == "card-lost-response" ? new PaymentResult(PaymentStatus.Unknown, "", 0m) : result;
         }
     }
 
     /// <summary>
     /// Stands in for a provider's SDK: amounts in whole cents, CardDeclinedException for a declined card,
     /// and an optional idempotency key. It keeps charges in memory so the examples run without a network.
+    /// "card-lost-response" charges the card and then throws TimeoutException, as when the answer is lost.
     /// </summary>
     public sealed class CentsPaymentApi
     {
@@ -57,6 +62,10 @@ namespace Examples.Lsp
             {
                 _byKey[idempotencyKey] = charge;
             }
+            if (cardToken == "card-lost-response")
+            {
+                throw new TimeoutException("the provider did not answer in time");
+            }
             return charge;
         }
     }
@@ -67,7 +76,8 @@ namespace Examples.Lsp
 
     /// <summary>
     /// AFTER: an adapter for the cents API that keeps the contract. It checks the input with the shared
-    /// rules, converts after multiplying, turns a decline into a result and passes the key on.
+    /// rules, converts after multiplying, turns a decline into Declined, a timeout or a dropped
+    /// connection into Unknown, and passes the key on.
     /// </summary>
     public sealed class CentsGateway(CentsPaymentApi api) : IPaymentGateway
     {
@@ -83,6 +93,11 @@ namespace Examples.Lsp
             catch (CardDeclinedException)
             {
                 return new PaymentResult(PaymentStatus.Declined, "", 0m);
+            }
+            catch (Exception ex) when (ex is TimeoutException or IOException)
+            {
+                // No answer is not a "no": the card may have been charged. A retry with the same key finds out.
+                return new PaymentResult(PaymentStatus.Unknown, "", 0m);
             }
         }
     }

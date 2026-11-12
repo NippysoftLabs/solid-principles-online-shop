@@ -19,6 +19,15 @@ public static class PaymentGatewayContract
             g.Charge("k1", "card-declined", 10m);
             return g.Charge("k1", "card-ok", 10m) is { Status: PaymentStatus.Approved, Amount: 10m };
         }),
+        ("no answer from the provider returns Unknown, not Declined", g =>
+            g.Charge("k1", "card-lost-response", 10m) is { Status: PaymentStatus.Unknown, Amount: 0m }),
+        ("after an Unknown result, a retry with the same key returns the charge that happened", g =>
+        {
+            g.Charge("k1", "card-lost-response", 10m);
+            var retry = g.Charge("k1", "card-lost-response", 10m);
+            return retry is { Status: PaymentStatus.Approved, Amount: 10m }
+                && g.Charge("k1", "card-ok", 10m).ChargeId == retry.ChargeId;
+        }),
         ("same key charges once", g => g.Charge("k1", "card-ok", 10m).ChargeId == g.Charge("k1", "card-ok", 10m).ChargeId),
         ("different keys are different charges", g => g.Charge("k1", "card-ok", 10m).ChargeId != g.Charge("k2", "card-ok", 10m).ChargeId),
         ("zero amount throws ArgumentException", g => Throws<ArgumentException>(() => g.Charge("k1", "card-ok", 0m))),

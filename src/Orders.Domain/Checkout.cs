@@ -6,17 +6,28 @@ namespace Orders.Domain;
 /// </summary>
 public sealed class Checkout(IPaymentGateway payments, IOrderStore orders)
 {
-    /// <summary>Returns true when the card was charged and the order saved, false when the card was declined.</summary>
-    public bool Place(Order order, string cardToken)
+    public CheckoutResult Place(Order order, string cardToken)
     {
         // The order id is the idempotency key: with a gateway that keeps the contract, a retry of the
         // same order returns the first charge instead of charging again.
         var payment = payments.Charge(order.Id, cardToken, order.Total);
-        if (payment.Status == PaymentStatus.Declined)
+        switch (payment.Status)
         {
-            return false;
+            case PaymentStatus.Approved:
+                orders.Save(order);
+                return CheckoutResult.Placed;
+            case PaymentStatus.Declined:
+                return CheckoutResult.Declined;
+            default:
+                // Unknown, or a status this code does not know: never report it as declined.
+                return CheckoutResult.PaymentUnknown;
         }
-        orders.Save(order);
-        return true;
     }
 }
+
+/// <summary>
+/// Placed: charged and saved. Declined: nothing was charged; the customer can try another card.
+/// PaymentUnknown: the provider did not answer; the order is not saved yet, and the customer should
+/// not pay again with another card. Retrying the same order is safe: it reuses the same key.
+/// </summary>
+public enum CheckoutResult { Placed, Declined, PaymentUnknown }

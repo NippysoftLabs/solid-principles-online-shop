@@ -3,7 +3,7 @@ using FakeCloud.Storage;
 using Orders.Domain;
 using Orders.Infrastructure;
 
-namespace SystemSolid.Tests;
+namespace OnlineShop.Tests;
 
 public class DipTests
 {
@@ -16,6 +16,32 @@ public class DipTests
         // The only constructor takes nothing: there is no seam to pass another provider or a test double.
         Assert.Empty(service.GetConstructors().Single().GetParameters());
         Assert.Equal("invoices-prod/invoices/o-1.txt", new Examples.Dip.Before.InvoiceService().Archive("o-1", "c1", 10m));
+    }
+
+    [Fact]
+    public void An_interface_and_constructor_injection_alone_still_depend_on_the_vendor()
+    {
+        var service = typeof(Examples.Dip.InterfaceOnly.InvoiceService);
+        var dependency = service.GetConstructors().Single().GetParameters().Single().ParameterType;
+
+        // It can take a test double...
+        Assert.True(dependency.IsInterface);
+        // ...but the abstraction belongs to the vendor and speaks its language.
+        Assert.Equal("FakeCloud.Storage", dependency.Assembly.GetName().Name);
+        Assert.Equal(["UploadObject", "get_Bucket"], dependency.GetMethods().Select(m => m.Name).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void After_the_port_is_declared_by_the_domain_in_its_own_terms()
+    {
+        var port = typeof(IInvoiceArchive);
+        var types = port.GetMethods().SelectMany(m => m.GetParameters().Select(p => p.ParameterType).Append(m.ReturnType));
+
+        Assert.Equal(typeof(InvoiceService).Assembly, port.Assembly);
+        Assert.All(types, t => Assert.True(t.Namespace == "System", $"{t} is not a framework type"));
+        // The adapter is in another assembly and points at the domain.
+        Assert.NotEqual(port.Assembly, typeof(CloudInvoiceArchive).Assembly);
+        Assert.Contains("Orders.Domain", typeof(CloudInvoiceArchive).Assembly.GetReferencedAssemblies().Select(a => a.Name));
     }
 
     [Fact]

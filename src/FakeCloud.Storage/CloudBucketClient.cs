@@ -1,10 +1,21 @@
 namespace FakeCloud.Storage;
 
 /// <summary>
+/// The vendor also ships an interface, so callers can mock it. It is shaped like the vendor's storage
+/// (buckets and object paths), not like any business need.
+/// </summary>
+public interface ICloudBucket
+{
+    string Bucket { get; }
+
+    void UploadObject(string objectPath, byte[] content);
+}
+
+/// <summary>
 /// Stands in for a cloud vendor's storage SDK. It keeps objects in memory so the examples
 /// run without an account or a network.
 /// </summary>
-public sealed class CloudBucketClient(string bucket)
+public sealed class CloudBucketClient(string bucket) : ICloudBucket
 {
     private readonly Dictionary<string, byte[]> _objects = new(StringComparer.Ordinal);
 

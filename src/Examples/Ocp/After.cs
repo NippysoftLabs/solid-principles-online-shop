@@ -101,6 +101,15 @@ public sealed class ShippingCatalog
     internal static bool IsPrice(decimal? value) => value is >= 0 && decimal.Round(value.Value, 2) == value.Value;
 }
 
+/// <summary>
+/// A consumer of the catalog: the order total at checkout. It knows option names, not rules, so a new
+/// rule does not change it either.
+/// </summary>
+public sealed class OrderTotals(ShippingCatalog shipping)
+{
+    public decimal Total(decimal itemsTotal, string shippingOption) => itemsTotal + shipping.Quote(shippingOption, itemsTotal);
+}
+
 /// <summary>The same price for every order.</summary>
 public sealed class FlatRule : IShippingRule
 {

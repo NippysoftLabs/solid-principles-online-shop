@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using Examples.Contracts.After;
 using Examples.Contracts.Before;
 
-namespace SystemSolid.Tests;
+namespace OnlineShop.Tests;
 
 public class ContractTests
 {

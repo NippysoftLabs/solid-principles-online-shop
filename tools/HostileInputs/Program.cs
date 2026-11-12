@@ -207,3 +207,26 @@ foreach (var id in new[] { "../o-1", "a/b", "%2F", "", "pedido-\u00F1", new stri
         return location.Length > 80 ? $"{location[..60]}... ({location.Length} chars)" : location;
     });
 }
+
+Console.WriteLine();
+Console.WriteLine("== I. IPaymentGateway.Charge when the provider charges but its answer is lost, per gateway");
+foreach (var (name, create) in gateways)
+{
+    Show($"{name}: key 'k', card 'card-lost-response', 10; then the same call again", () =>
+    {
+        var gateway = create();
+        var results = new List<object>();
+        for (var i = 0; i < 2; i++)
+        {
+            try
+            {
+                results.Add(gateway.Charge("k", "card-lost-response", 10m));
+            }
+            catch (Exception ex)
+            {
+                results.Add($"{ex.GetType().Name}: {ex.Message}");
+            }
+        }
+        return results;
+    });
+}

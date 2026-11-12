@@ -7,7 +7,7 @@
     <Project Path="src/Examples/Examples.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/SystemSolid.Tests/SystemSolid.Tests.csproj" />
+    <Project Path="tests/OnlineShop.Tests/OnlineShop.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/HostileInputs/HostileInputs.csproj" />

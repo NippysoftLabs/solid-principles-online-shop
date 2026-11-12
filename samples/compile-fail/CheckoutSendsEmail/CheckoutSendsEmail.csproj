@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Not in SystemSolid.slnx: compiles the real Orders.Domain sources plus one file that calls
+  <!-- Not in SolidPrinciplesOnlineShop.slnx: compiles the real Orders.Domain sources plus one file that calls
        marketing's email, with the same references Orders.Domain has (none). It must fail to build. -->
   <ItemGroup>
     <Compile Include="..\..\..\src\Orders.Domain\*.cs" />

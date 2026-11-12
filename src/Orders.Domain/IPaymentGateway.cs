@@ -11,6 +11,9 @@ namespace Orders.Domain;
 /// <item>A declined card returns <see cref="PaymentStatus.Declined"/>; it does not throw.</item>
 /// <item>After an approved charge, a second call with the same idempotency key returns that charge and charges nothing new.</item>
 /// <item>A declined charge does not use up the key: the same key can be charged again, for example with another card.</item>
+/// <item>When the provider does not answer (a timeout or a dropped connection), the result is
+/// <see cref="PaymentStatus.Unknown"/>, never Declined: the card may or may not have been charged.
+/// A retry with the same key then returns the charge if it happened, and charges nothing new.</item>
 /// </list>
 /// </summary>
 public interface IPaymentGateway
@@ -18,9 +21,13 @@ public interface IPaymentGateway
     PaymentResult Charge(string idempotencyKey, string cardToken, decimal amount);
 }
 
-public enum PaymentStatus { Approved, Declined }
+/// <summary>
+/// Declined: the provider answered "no"; nothing was charged. Unknown: there was no answer, so nobody
+/// knows yet; the caller must not treat it as declined (another card could charge the customer twice).
+/// </summary>
+public enum PaymentStatus { Approved, Declined, Unknown }
 
-/// <summary>ChargeId is the provider's id for the charge; it is empty and Amount is 0 when the card is declined.</summary>
+/// <summary>ChargeId is the provider's id for the charge; it is empty and Amount is 0 when the card is declined or the result is unknown.</summary>
 public sealed record PaymentResult(PaymentStatus Status, string ChargeId, decimal Amount);
 
 /// <summary>The input rules of the contract, in one place so every adapter applies the same ones.</summary>

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Examples.Isp
+namespace Examples.Api
 {
     /// <summary>The catalog's internal model. Cost and supplier are for purchasing, bin and stock for the warehouse.</summary>
     public sealed record Product(
@@ -16,7 +16,7 @@ namespace Examples.Isp
     }
 }
 
-namespace Examples.Isp.Before
+namespace Examples.Api.Before
 {
     /// <summary>BEFORE: one endpoint for every consumer. The storefront receives cost, supplier and bin.</summary>
     public static class ProductApi
@@ -25,7 +25,7 @@ namespace Examples.Isp.Before
     }
 }
 
-namespace Examples.Isp.After
+namespace Examples.Api.After
 {
     /// <summary>What the storefront needs, and nothing else.</summary>
     public sealed record StorefrontProduct(string Sku, string Name, decimal Price)
